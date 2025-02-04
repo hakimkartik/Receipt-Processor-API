@@ -121,7 +121,7 @@ docker run -p 3000:3000 receipt-processor
 
     ```json
     { "id": "7fb1377b-b223-49d9-a31a-5a02701dd310" }
-   ```
+    ```
    
 2. Get Points
 Path: /receipts/{id}/points
@@ -141,6 +141,25 @@ Path: /receipts/{id}/points
     ```json
     { "points": 32 }
     ```
+3. Health Endpoint
+
+   Method: GET
+
+   Response: JSON containing the OK status if the service is up and running.
+
+   Example Request:
+
+   ```bash
+   curl -X GET http://127.0.0.1:3000/health
+   ```
+         
+   Example Response:
+         
+      ```json
+      {
+        "status": "OK"
+      }
+      ```
 
 ---
 

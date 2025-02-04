@@ -3,7 +3,6 @@ import uuid
 from datetime import datetime
 import logging
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",  # Log format
@@ -17,41 +16,58 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# In-memory storage for receipts and their points
-receipts = {}
+# In-memory storage for receipt ids and their points
+receipts_cache = {}
+
+
+def check_request_data(data):
+    expected_keys = ['retailer', 'purchaseDate', 'purchaseTime', 'items', 'total']
+    all_ok = bool(not data or not all(key in data for key in expected_keys))
+    logger.debug(f"Request check, any issues found: {all_ok}")
+    return all_ok
+
+
+def generate_receipt_id():
+    return str(uuid.uuid4())
 
 
 @app.route('/receipts/process', methods=['POST'])
 def process_receipt():
-    data = request.get_json()
+    request_data = request.get_json()
 
     # Validate the receipt data
-    if not data or not all(key in data for key in ['retailer', 'purchaseDate', 'purchaseTime', 'items', 'total']):
+    if check_request_data(request_data):
         return jsonify({"error": "The receipt is invalid."}), 400
 
     # Generate a unique ID for the receipt
-    receipt_id = str(uuid.uuid4())
+    receipt_id = generate_receipt_id()
+
     logger.info(f"Generated receipt ID: {receipt_id}")
 
     # Calculate points based on the rules
-    points = calculate_points(data)
-    receipts[receipt_id] = points
-    logger.info(f"Stored receipt with ID: {receipt_id} and points: {points}")
+    points = calculate_points(request_data)
+    receipts_cache[receipt_id] = points
+    logger.info(f"Stored receipt-ID: {receipt_id} and points: {points} in memory")
 
-    return jsonify({"id": receipt_id}), 200
+    return jsonify({"receipt_id": receipt_id}), 200
+
+@app.route('/health',methods=['GET'])
+def health_check():
+    logger.debug("Received health check request")
+    return jsonify({"status":"OK"}), 200
 
 
-@app.route('/receipts/<string:id>/points', methods=['GET'])
-def get_points(id):
-    logger.debug(f"Received request to get points for receipt ID: {id}")
+@app.route('/receipts/<string:receipt_id>/points', methods=['GET'])
+def get_points(receipt_id):
+    logger.debug(f"Received request to get points for receipt ID: {receipt_id}")
 
-    if id not in receipts:
-        msg = f"No receipt found for ID: {id}"
+    if receipt_id not in receipts_cache:
+        msg = f"No receipt found for ID: {receipt_id}"
         logger.error(msg)
         return jsonify({"error": msg}), 404
 
-    points = receipts[id]
-    logger.debug(f"Returning points for receipt ID {id}: {points}")
+    points = receipts_cache[receipt_id]
+    logger.debug(f"Returning points for receipt ID {receipt_id}: {points}")
 
     return jsonify({"points": points}), 200
 
@@ -107,5 +123,5 @@ def calculate_points(receipt):
 
 
 if __name__ == '__main__':
-    app.debug = True
+    #app.debug = True
     app.run(host='0.0.0.0', port=3000)
